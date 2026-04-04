@@ -48,14 +48,14 @@ export function LineChart({
   const activeSeries = seriesMeta.length
     ? seriesMeta
     : inputSeries.map((s) => ({
-        id: s.id ?? s.label,
-        label: s.label,
-        color: s.color,
-      }));
+      id: s.id ?? s.label,
+      label: s.label,
+      color: s.color,
+    }));
 
   const { xAxisData, seriesData } = useMemo(() => {
     const xAxisLabels = history.map((item) =>
-      typeof item.label === 'number' ? new Date(item.label).toLocaleTimeString() : String(item.label)
+      item.label
     );
     const datasets = activeSeries.map((_, seriesIndex) =>
       history.map((item) => {
@@ -119,7 +119,14 @@ export function LineChart({
       <MuiLineChart
         skipAnimation
         height={height}
-        xAxis={[{ scaleType: 'point', data: xAxisData }]}
+        xAxis={[{
+          scaleType: 'time',
+          data: xAxisData,
+          valueFormatter: (value) => {
+            const date = new Date(value);
+            return `${date.toLocaleTimeString()}`;
+          }
+        }]}
         yAxis={[{ min: yAxisMin, max: yAxisMax }]}
         series={activeSeries.map((s, index) => ({
           id: s.id,
