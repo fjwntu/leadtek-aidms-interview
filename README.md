@@ -41,6 +41,47 @@ npm run dev
 
 (`npm start` runs the same Vite dev server.) The app defaults to **http://localhost:3000** and proxies `/api` to the metrics server on port **4000** (override with `METRICS_PORT`).
 
+## Testing
+
+### ChartComponents unit tests
+
+Run the test suite once:
+
+```bash
+cd ChartComponents
+npm test
+```
+
+Run tests in watch mode during development:
+
+```bash
+cd ChartComponents
+npm run test:watch
+```
+
+### DemoApp build check
+
+Validate the demo app production build:
+
+```bash
+cd DemoApp
+npm run build
+```
+
+### CI (GitHub Actions)
+
+The workflow in `.github/workflows/ci.yml` runs on every push and pull request:
+
+1. `ChartComponents`: `npm ci` + `npm test`
+2. `DemoApp`: `npm ci` + `npm run build`
+
+To reproduce CI locally from the repo root:
+
+```bash
+cd ChartComponents && npm ci && npm test
+cd ../DemoApp && npm ci && npm run build
+```
+
 ## Test scenarios (DemoApp)
 
 Use the **Test scenario** radio group on the dashboard:
