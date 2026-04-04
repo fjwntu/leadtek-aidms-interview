@@ -86,32 +86,80 @@ export function App() {
     }
 
     let cancelled = false;
+    let ws: WebSocket | null = null;
 
-    const tick = async () => {
+    const connectWebSocket = () => {
       try {
-        const res = await fetch('/api/metrics');
-        if (!res.ok) {
-          const statusText = res.statusText || 'Unknown error';
-          throw new Error(`HTTP ${res.status} ${statusText}`);
+        // Connect directly to backend WebSocket server
+        // In development: read port from VITE_API_PORT env variable
+        // In production: use the same protocol and host as the page
+        const isDev = !import.meta.env.PROD;
+        let wsUrl: string;
+        
+        if (isDev) {
+          // Development: connect directly to backend using port from env
+          const apiPort = import.meta.env.VITE_API_PORT || '4000';
+          wsUrl = `ws://localhost:${apiPort}`;
+        } else {
+          // Production: use the same protocol and host as the current page
+          const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+          const host = window.location.host;
+          wsUrl = `${protocol}//${host}`;
         }
-        const payload: MetricsPayload = await res.json();
-        if (cancelled) {
-          return;
-        }
-        setFetchError(null);
-        setLatest(payload);
+
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          if (cancelled) {
+            ws?.close();
+            return;
+          }
+          console.log('WebSocket connected');
+          setFetchError(null);
+        };
+
+        ws.onmessage = (event) => {
+          if (cancelled) return;
+          try {
+            const payload: MetricsPayload = JSON.parse(event.data);
+            setLatest(payload);
+            setFetchError(null);
+          } catch (e) {
+            setFetchError(e instanceof Error ? `Parse error: ${e.message}` : 'Parse error');
+          }
+        };
+
+        ws.onerror = () => {
+          if (!cancelled) {
+            setFetchError('WebSocket connection error');
+          }
+        };
+
+        ws.onclose = () => {
+          if (!cancelled) {
+            setFetchError('WebSocket connection closed');
+            // Optionally attempt to reconnect after a delay
+            setTimeout(() => {
+              if (!cancelled) {
+                connectWebSocket();
+              }
+            }, 3000);
+          }
+        };
       } catch (e) {
         if (!cancelled) {
-          setFetchError(e instanceof Error ? e.message : 'Request failed');
+          setFetchError(e instanceof Error ? e.message : 'Connection failed');
         }
       }
     };
 
-    void tick();
-    const id = window.setInterval(tick, POLL_MS);
+    connectWebSocket();
+
     return () => {
       cancelled = true;
-      window.clearInterval(id);
+      if (ws) {
+        ws.close();
+      }
     };
   }, [scenario]);
 
@@ -201,7 +249,7 @@ export function App() {
             System Monitoring Dashboard
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Live metrics from the local Express API. Switch scenarios to validate loading and error handling
+            Live metrics from the local WebSocket server. Switch scenarios to validate loading and error handling
             in the chart library.
           </Typography>
           <FormControl component="fieldset">
@@ -218,7 +266,7 @@ export function App() {
           </FormControl>
           {fetchError ? (
             <Typography color="error" variant="body2">
-              API error: {fetchError} (is the backend running and `API_PORT` configured correctly?)
+              Connection error: {fetchError} (is the backend running and the websocket port configured correctly?)
             </Typography>
           ) : null}
         </Stack>

@@ -28,7 +28,7 @@ cd DemoApp
 cp .env.example .env
 ```
 
-Set `FRONTEND_PORT`, `API_PORT`, `VITE_UPDATE_INTERVAL_MS`, and `VITE_LINE_HISTORY_COUNT` in `.env` as needed.
+Set `FRONTEND_PORT`, `VITE_API_PORT`, `VITE_UPDATE_INTERVAL_MS`, and `VITE_LINE_HISTORY_COUNT` in `.env` as needed.
 
 Run the backend and frontend in **two terminals** (the UI proxies `/api` to the metrics server).
 
@@ -48,7 +48,7 @@ cd DemoApp
 npm run dev
 ```
 
-(`npm start` runs the same Vite dev server.) The app defaults to **http://localhost:3000** and proxies `/api` to the metrics server on port **4000**; override with `.env` keys `FRONTEND_PORT` and `API_PORT`.
+(`npm start` runs the same Vite dev server.) The app defaults to **http://localhost:3000** and proxies `/api` to the metrics server on port **4000**; override with `.env` keys `FRONTEND_PORT` and `VITE_API_PORT`.
 
 ## Testing
 
