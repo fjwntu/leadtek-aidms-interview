@@ -27,8 +27,18 @@ interface MetricsPayload {
   disk: number;
 }
 
-const HISTORY_LIMIT = 24;
-const POLL_MS = 2000;
+const DEFAULT_POLL_MS = 2000;
+const parsedPollMs = Number(import.meta.env.VITE_UPDATE_INTERVAL_MS);
+const POLL_MS = Number.isFinite(parsedPollMs) && parsedPollMs > 0
+  ? parsedPollMs
+  : DEFAULT_POLL_MS;
+
+const DEFAULT_LINE_HISTORY_COUNT = 20;
+const parsedLineHistoryCount = Number(import.meta.env.VITE_LINE_HISTORY_COUNT);
+const LINE_HISTORY_COUNT =
+  Number.isFinite(parsedLineHistoryCount) && parsedLineHistoryCount > 0
+    ? Math.floor(parsedLineHistoryCount)
+    : DEFAULT_LINE_HISTORY_COUNT;
 
 const METRIC_COLORS = {
   cpu: '#1976d2',
@@ -41,14 +51,6 @@ const METRIC_TRACK_COLORS = {
   memory: '#eedaf7',
   disk: '#d9efe0',
 } as const;
-
-function formatTime(ts: number) {
-  return new Date(ts).toLocaleTimeString(undefined, {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
-}
 
 const malformedLineData: ChartData = {
   title: 'Malformed (invalid series)',
@@ -75,7 +77,7 @@ const malformedGaugeData: ChartData = {
 
 export function App() {
   const [scenario, setScenario] = useState<Scenario>('normal');
-  const [history, setHistory] = useState<MetricsPayload[]>([]);
+  const [latest, setLatest] = useState<MetricsPayload | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -89,17 +91,15 @@ export function App() {
       try {
         const res = await fetch('/api/metrics');
         if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
+          const statusText = res.statusText || 'Unknown error';
+          throw new Error(`HTTP ${res.status} ${statusText}`);
         }
         const payload: MetricsPayload = await res.json();
         if (cancelled) {
           return;
         }
         setFetchError(null);
-        setHistory((prev) => {
-          const next = [...prev, payload];
-          return next.length > HISTORY_LIMIT ? next.slice(-HISTORY_LIMIT) : next;
-        });
+        setLatest(payload);
       } catch (e) {
         if (!cancelled) {
           setFetchError(e instanceof Error ? e.message : 'Request failed');
@@ -115,26 +115,30 @@ export function App() {
     };
   }, [scenario]);
 
-  const latest = history[history.length - 1];
-
   const lineData: ChartData = useMemo(() => {
     if (scenario === 'malformed') {
       return malformedLineData;
     }
+    if (scenario === 'normal' && fetchError) {
+      return { title: 'CPU / Memory / Disk over time', labels: [], series: [] };
+    }
     return {
       title: 'CPU / Memory / Disk over time',
-      labels: history.map((h) => formatTime(h.timestamp)),
+      labels: [latest?.timestamp ?? Date.now()],
       series: [
-        { label: 'CPU %', data: history.map((h) => h.cpu), color: METRIC_COLORS.cpu },
-        { label: 'Memory %', data: history.map((h) => h.memory), color: METRIC_COLORS.memory },
-        { label: 'Disk %', data: history.map((h) => h.disk), color: METRIC_COLORS.disk },
+        { label: 'CPU %', data: [latest?.cpu ?? 0], color: METRIC_COLORS.cpu },
+        { label: 'Memory %', data: [latest?.memory ?? 0], color: METRIC_COLORS.memory },
+        { label: 'Disk %', data: [latest?.disk ?? 0], color: METRIC_COLORS.disk },
       ],
     };
-  }, [history, scenario]);
+  }, [latest, scenario, fetchError]);
 
   const barData: ChartData = useMemo(() => {
     if (scenario === 'malformed') {
       return malformedBarData;
+    }
+    if (scenario === 'normal' && fetchError) {
+      return { title: 'Current resource comparison', labels: [], series: [] };
     }
     if (!latest) {
       return { title: 'Current snapshot', labels: [], series: [] };
@@ -148,11 +152,14 @@ export function App() {
         { label: 'Disk %', data: [latest.disk], color: METRIC_COLORS.disk },
       ],
     };
-  }, [latest, scenario]);
+  }, [latest, scenario, fetchError]);
 
   const gaugeData: ChartData = useMemo(() => {
     if (scenario === 'malformed') {
       return malformedGaugeData;
+    }
+    if (scenario === 'normal' && fetchError) {
+      return { title: 'Gauges', gauges: [] };
     }
     return {
       title: 'Gauges',
@@ -180,13 +187,11 @@ export function App() {
         },
       ],
     };
-  }, [latest, scenario]);
+  }, [latest, scenario, fetchError]);
 
-  const chartsLoading =
-    scenario === 'loading' || (scenario === 'normal' && history.length === 0 && !fetchError);
+  const chartsLoading = scenario === 'loading' || (scenario === 'normal' && !latest && !fetchError);
 
-  const barLoading =
-    scenario === 'loading' || (scenario === 'normal' && !latest && !fetchError);
+  const barLoading = scenario === 'loading' || (scenario === 'normal' && !latest && !fetchError);
 
   return (
     <Box sx={{ py: 3, minHeight: '100vh', bgcolor: 'grey.50' }}>
@@ -213,14 +218,21 @@ export function App() {
           </FormControl>
           {fetchError ? (
             <Typography color="error" variant="body2">
-              API error: {fetchError} (is the backend running on port 4000?)
+              API error: {fetchError} (is the backend running and `API_PORT` configured correctly?)
             </Typography>
           ) : null}
         </Stack>
 
         <Stack spacing={3}>
           <Paper sx={{ p: 2 }}>
-            <LineChart data={lineData} loading={chartsLoading} height={340} />
+            <LineChart
+              data={lineData}
+              loading={chartsLoading}
+              height={340}
+              yAxisMin={0}
+              yAxisMax={100}
+              historyCount={LINE_HISTORY_COUNT}
+            />
           </Paper>
             <Paper sx={{ p: 2}}>
               <BarChart data={barData} loading={barLoading} height={320} />

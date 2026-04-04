@@ -28,7 +28,7 @@ cd DemoApp
 cp .env.example .env
 ```
 
-Set `FRONTEND_PORT` and `API_PORT` in `.env` as needed.
+Set `FRONTEND_PORT`, `API_PORT`, `VITE_UPDATE_INTERVAL_MS`, and `VITE_LINE_HISTORY_COUNT` in `.env` as needed.
 
 Run the backend and frontend in **two terminals** (the UI proxies `/api` to the metrics server).
 
@@ -95,7 +95,7 @@ cd ../DemoApp && npm ci && npm run build
 
 Use the **Test scenario** radio group on the dashboard:
 
-1. **Normal data** — polls `/api/metrics` every 2 seconds and updates line, bar, and gauge charts.
+1. **Normal data** — polls `/api/metrics` on `VITE_UPDATE_INTERVAL_MS` (default `2000`) and updates line, bar, and gauge charts; line history keeps the latest `VITE_LINE_HISTORY_COUNT` samples (default `20`) and uses each sample timestamp as the X-axis label.
 2. **Empty / loading** — forces the chart components into their `loading` state (info alert placeholders).
 3. **Malformed data** — passes intentionally invalid `ChartData` so each chart shows the library’s in-component validation message.
 
