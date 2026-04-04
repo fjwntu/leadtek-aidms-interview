@@ -21,6 +21,15 @@ The demo links the library via `"@leadtek/chart-components": "file:../ChartCompo
 
 ## Execution
 
+Copy env template first (optional if you want non-default ports):
+
+```bash
+cd DemoApp
+cp .env.example .env
+```
+
+Set `FRONTEND_PORT` and `API_PORT` in `.env` as needed.
+
 Run the backend and frontend in **two terminals** (the UI proxies `/api` to the metrics server).
 
 **Terminal 1 — backend**
@@ -39,7 +48,7 @@ cd DemoApp
 npm run dev
 ```
 
-(`npm start` runs the same Vite dev server.) The app defaults to **http://localhost:3000** and proxies `/api` to the metrics server on port **4000** (override with `METRICS_PORT`).
+(`npm start` runs the same Vite dev server.) The app defaults to **http://localhost:3000** and proxies `/api` to the metrics server on port **4000**; override with `.env` keys `FRONTEND_PORT` and `API_PORT`.
 
 ## Testing
 
