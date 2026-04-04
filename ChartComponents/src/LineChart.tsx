@@ -12,12 +12,11 @@ export interface LineChartProps {
 }
 
 export function LineChart({ data, height = 320, loading = false }: LineChartProps) {
-  const [containerRef, width] = useResponsiveChartWidth();
   const validation = validateLineOrBarData(data);
 
   if (loading) {
     return (
-      <Box ref={containerRef} sx={{ width: '100%' }}>
+      <Box sx={{ width: '100%' }}>
         <ChartStatus severity="info" message="Loading chart data…" />
       </Box>
     );
@@ -25,7 +24,7 @@ export function LineChart({ data, height = 320, loading = false }: LineChartProp
 
   if (!validation.ok) {
     return (
-      <Box ref={containerRef} sx={{ width: '100%' }}>
+      <Box sx={{ width: '100%' }}>
         <ChartStatus message={validation.message} />
       </Box>
     );
@@ -37,7 +36,7 @@ export function LineChart({ data, height = 320, loading = false }: LineChartProp
     series![0].data.map((_, i) => i);
 
   return (
-    <Box ref={containerRef} sx={{ width: '100%' }}>
+    <Box sx={{ width: '100%' }}>
       {title ? (
         <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
           {title}

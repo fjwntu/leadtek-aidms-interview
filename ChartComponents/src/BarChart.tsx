@@ -11,7 +11,6 @@ export interface BarChartProps {
 }
 
 export function BarChart({ data, height = 320, loading = false }: BarChartProps) {
-  // const [containerRef, width] = useResponsiveChartWidth();
   const validation = validateLineOrBarData(data);
 
   if (loading) {
