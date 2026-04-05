@@ -16,9 +16,10 @@ import {
   Typography,
 } from '@mui/material';
 import FormControlLabel from '@mui/material/FormControlLabel';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 type Scenario = 'normal' | 'loading' | 'malformed';
+type DataSource = 'api' | 'ws';
 
 interface MetricsPayload {
   timestamp: number;
@@ -77,8 +78,11 @@ const malformedGaugeData: ChartData = {
 
 export function App() {
   const [scenario, setScenario] = useState<Scenario>('normal');
+  const [dataSource, setDataSource] = useState<DataSource>('ws');
   const [latest, setLatest] = useState<MetricsPayload | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (scenario !== 'normal') {
@@ -86,7 +90,51 @@ export function App() {
     }
 
     let cancelled = false;
-    let ws: WebSocket | null = null;
+    let pollIntervalId: number | undefined;
+
+    if (reconnectTimeoutRef.current !== undefined) {
+      window.clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = undefined;
+    }
+
+    setFetchError(null);
+
+    if (dataSource === 'api') {
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+
+      const tick = async () => {
+        try {
+          const res = await fetch('/api/metrics');
+          if (!res.ok) {
+            const statusText = res.statusText || 'Unknown error';
+            throw new Error(`HTTP ${res.status} ${statusText}`);
+          }
+          const payload: MetricsPayload = await res.json();
+          if (cancelled) {
+            return;
+          }
+          setFetchError(null);
+          setLatest(payload);
+        } catch (e) {
+          if (!cancelled) {
+            setFetchError(e instanceof Error ? e.message : 'Request failed');
+          }
+        }
+      };
+
+      void tick();
+      pollIntervalId = window.setInterval(tick, POLL_MS);
+
+      return () => {
+        cancelled = true;
+        if (pollIntervalId !== undefined) {
+          window.clearInterval(pollIntervalId);
+        }
+      };
+    }
 
     const connectWebSocket = () => {
       try {
@@ -107,7 +155,8 @@ export function App() {
           wsUrl = `${protocol}//${host}`;
         }
 
-        ws = new WebSocket(wsUrl);
+        wsRef.current = new WebSocket(wsUrl);
+        const ws = wsRef.current;
 
         ws.onopen = () => {
           if (cancelled) {
@@ -136,10 +185,10 @@ export function App() {
         };
 
         ws.onclose = () => {
+          console.log('WebSocket disconnected');
           if (!cancelled) {
             setFetchError('WebSocket connection closed');
-            // Optionally attempt to reconnect after a delay
-            setTimeout(() => {
+            reconnectTimeoutRef.current = window.setTimeout(() => {
               if (!cancelled) {
                 connectWebSocket();
               }
@@ -157,11 +206,16 @@ export function App() {
 
     return () => {
       cancelled = true;
-      if (ws) {
-        ws.close();
+      if (reconnectTimeoutRef.current !== undefined) {
+        window.clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = undefined;
+      }
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
       }
     };
-  }, [scenario]);
+  }, [scenario, dataSource]);
 
   const lineData: ChartData = useMemo(() => {
     if (scenario === 'malformed') {
@@ -249,9 +303,20 @@ export function App() {
             System Monitoring Dashboard
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Live metrics from the local WebSocket server. Switch scenarios to validate loading and error handling
+            Live metrics from the local backend. Choose API or WebSocket, then switch scenarios to validate loading and error handling
             in the chart library.
           </Typography>
+          <FormControl component="fieldset">
+            <FormLabel component="legend">Data source</FormLabel>
+            <RadioGroup
+              row
+              value={dataSource}
+              onChange={(_, v) => setDataSource(v as DataSource)}
+            >
+              <FormControlLabel value="api" control={<Radio />} label="HTTP API" />
+              <FormControlLabel value="ws" control={<Radio />} label="WebSocket" />
+            </RadioGroup>
+          </FormControl>
           <FormControl component="fieldset">
             <FormLabel component="legend">Test scenario</FormLabel>
             <RadioGroup
@@ -266,7 +331,7 @@ export function App() {
           </FormControl>
           {fetchError ? (
             <Typography color="error" variant="body2">
-              Connection error: {fetchError} (is the backend running and the websocket port configured correctly?)
+              {dataSource === 'api' ? 'API' : 'WebSocket'} error: {fetchError}
             </Typography>
           ) : null}
         </Stack>
