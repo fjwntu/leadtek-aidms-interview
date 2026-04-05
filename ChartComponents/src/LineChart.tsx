@@ -120,6 +120,8 @@ export function LineChart({
         skipAnimation
         height={height}
         xAxis={[{
+          min: Number(xAxisData[0]),
+          max: Number(xAxisData[xAxisData.length - 1]),
           scaleType: 'time',
           data: xAxisData,
           valueFormatter: (value) => {

@@ -351,9 +351,7 @@ export function App() {
               <BarChart data={barData} loading={barLoading} height={320} />
             </Paper>
             <Paper sx={{ p: 2}}>
-              <Stack spacing={2}>
                 <GaugeChart data={gaugeData} loading={chartsLoading} />
-              </Stack>
             </Paper>
         </Stack>
       </Container>
