@@ -43,7 +43,13 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: DemoApp/package-lock.json
+          cache-dependency-path: |
+            DemoApp/package-lock.json
+            ChartComponents/package-lock.json
+
+      - name: Install chart component dependencies
+        working-directory: ChartComponents
+        run: npm ci
 
       - name: Install dependencies
         run: npm ci
